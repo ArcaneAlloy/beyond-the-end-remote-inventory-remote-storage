@@ -1,0 +1,40 @@
+# Build output
+build/
+out/
+
+# Gradle cache y wrapper (excepto los archivos necesarios para que otros compilen)
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Eclipse
+.classpath
+.project
+.settings/
+eclipse/
+
+# VS Code
+.vscode/
+
+# Forge MDK - carpetas generadas
+run/
+runs/
+mcp_out/
+src/main/java/net/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dependencias locales (no subir los jars de terceros)
+libs/

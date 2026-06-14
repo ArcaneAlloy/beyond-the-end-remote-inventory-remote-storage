@@ -1,0 +1,8 @@
+{
+  "occbutton.open_storage": "Open Dimensional Storage",
+  "occbutton.open_storage.hint": "Shortcut: G",
+  "occbutton.error.dimension_not_found": "§cError: Storage dimension not generated yet.",
+  "occbutton.error.controller_not_found": "§cError: Storage Controller not found at expected position.",
+  "key.occbutton.open_storage": "Open Dimensional Storage",
+  "key.categories.occbutton": "Ender's Journey"
+}

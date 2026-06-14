@@ -1,0 +1,8 @@
+{
+  "occbutton.open_storage": "Abrir Almacenamiento Dimensional",
+  "occbutton.open_storage.hint": "Atajo: G",
+  "occbutton.error.dimension_not_found": "§cError: La dimension del storage no esta generada todavia.",
+  "occbutton.error.controller_not_found": "§cError: No se encontro el Storage Controller en la posicion esperada.",
+  "key.occbutton.open_storage": "Abrir Storage Dimensional",
+  "key.categories.occbutton": "Ender's Journey"
+}
