@@ -44,7 +44,7 @@ public class OccButtonPackets {
 
     public static void sendOpenStorage() {
         try {
-            LOGGER.info("[occbutton] Intentando enviar packet...");
+            LOGGER.info("[occbutton] Enviando packet OpenStorage al servidor...");
             CHANNEL.send(PacketDistributor.SERVER.noArg(), new MessageOpenStorage());
             LOGGER.info("[occbutton] Packet enviado OK");
         } catch (Exception e) {
@@ -54,19 +54,12 @@ public class OccButtonPackets {
 
     public static class MessageOpenStorage {
         public MessageOpenStorage() {}
-        public static void encode(MessageOpenStorage msg, FriendlyByteBuf buf) {
-            LOGGER.info("[occbutton] encode llamado");
-        }
-        public static MessageOpenStorage decode(FriendlyByteBuf buf) {
-            LOGGER.info("[occbutton] decode llamado");
-            return new MessageOpenStorage();
-        }
+        public static void encode(MessageOpenStorage msg, FriendlyByteBuf buf) {}
+        public static MessageOpenStorage decode(FriendlyByteBuf buf) { return new MessageOpenStorage(); }
 
         public static void handle(MessageOpenStorage msg, Supplier<NetworkEvent.Context> ctx) {
-            LOGGER.info("[occbutton] handle llamado, lado={}", ctx.get().getDirection());
             ctx.get().enqueueWork(() -> {
                 ServerPlayer player = ctx.get().getSender();
-                LOGGER.info("[occbutton] enqueueWork ejecutado, player={}", player);
                 if (player == null) return;
                 openStorageForPlayer(player);
             });
@@ -89,6 +82,7 @@ public class OccButtonPackets {
 
         StorageControllerBlockEntity controller = (StorageControllerBlockEntity) be;
 
+        // Fake remote para que Occultism permita abrir el container
         ItemStack fakeRemote = new ItemStack(OccultismItems.STORAGE_REMOTE.get());
         CompoundTag tag = new CompoundTag();
         GlobalBlockPos controllerGlobalPos = new GlobalBlockPos(StorageConstants.CONTROLLER_POS, storageWorld);
@@ -99,7 +93,8 @@ public class OccButtonPackets {
         player.getInventory().offhand.set(0, fakeRemote);
 
         try {
-            NetworkHooks.openScreen(player,
+            NetworkHooks.openScreen(
+                    player,
                     new SimpleMenuProvider(
                             (id, playerInv, p) -> new StorageControllerContainer(id, playerInv, controller) {
                                 @Override
@@ -109,9 +104,16 @@ public class OccButtonPackets {
                             },
                             Component.literal("Dimensional Storage")
                     ),
-                    buf -> {}
+                    // Escribir BlockPos y dimensión en el buffer S2C
+                    // El cliente los leerá en la factory de OccButtonMenuType
+                    buf -> {
+                        buf.writeBlockPos(StorageConstants.CONTROLLER_POS);
+                        buf.writeResourceLocation(StorageConstants.DIMENSION.location());
+                        LOGGER.info("[occbutton] Buffer S2C escrito: pos={} dim={}",
+                                StorageConstants.CONTROLLER_POS, StorageConstants.DIMENSION.location());
+                    }
             );
-            LOGGER.info("[occbutton] openScreen llamado OK");
+            LOGGER.info("[occbutton] openScreen OK para player={}", player.getName().getString());
         } catch (Exception e) {
             LOGGER.error("[occbutton] ERROR en openScreen: {}", e.getMessage(), e);
         } finally {

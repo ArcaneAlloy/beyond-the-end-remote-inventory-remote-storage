@@ -4,6 +4,7 @@ import fr.shoqapik.occbutton.client.ClientSetup;
 import fr.shoqapik.occbutton.client.KeybindHandler;
 import fr.shoqapik.occbutton.client.StorageButtonOverlay;
 import fr.shoqapik.occbutton.client.StorageGuiButtonRemover;
+import fr.shoqapik.occbutton.network.OccButtonPackets;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -19,6 +20,7 @@ public class OccButton {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         OccButtonMenuType.MENU_TYPES.register(modBus);
+        OccButtonPackets.register();
 
         DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> {
             modBus.addListener(ClientSetup::onRegisterKeyMappings);

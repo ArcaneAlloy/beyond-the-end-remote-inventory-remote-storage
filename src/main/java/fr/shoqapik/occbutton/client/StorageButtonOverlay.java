@@ -7,6 +7,7 @@ import com.klikli_dev.occultism.registry.OccultismItems;
 import com.mojang.blaze3d.vertex.PoseStack;
 import fr.shoqapik.occbutton.OccButtonMenuType;
 import fr.shoqapik.occbutton.StorageConstants;
+import fr.shoqapik.occbutton.network.OccButtonPackets;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiComponent;
@@ -17,7 +18,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -76,14 +76,27 @@ public class StorageButtonOverlay {
         if (event.getButton() != 0) return;
 
         if (isHovered((int) event.getMouseX(), (int) event.getMouseY())) {
-            openStorageDirectly();
+            openStorage();
         }
     }
 
-    public void openStorageDirectly() {
+    public void openStorage() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.player == null || mc.getSingleplayerServer() == null) return;
+        if (mc.player == null) return;
 
+        mc.player.playSound(SoundEvents.UI_BUTTON_CLICK, 0.5f, 1.0f);
+
+        if (mc.getSingleplayerServer() != null) {
+            // Singleplayer / LAN: acceder al servidor integrado directamente
+            openStorageSingleplayer(mc);
+        } else {
+            // Servidor dedicado: enviar packet C2S
+            LOGGER.info("[occbutton] Modo multijugador — enviando packet C2S");
+            OccButtonPackets.sendOpenStorage();
+        }
+    }
+
+    private void openStorageSingleplayer(Minecraft mc) {
         mc.getSingleplayerServer().execute(() -> {
             ServerLevel storageWorld = mc.getSingleplayerServer()
                     .getLevel(StorageConstants.DIMENSION);
@@ -105,14 +118,10 @@ public class StorageButtonOverlay {
                     .getPlayerList().getPlayer(mc.player.getUUID());
             if (serverPlayer == null) return;
 
-            // Guardamos el controller en la referencia estática para que la factory
-            // del cliente pueda acceder a él sin problemas de thread-safety
-            fr.shoqapik.occbutton.OccButtonMenuType.PENDING_CONTROLLER.set(controller);
+            // Establecer el controller ANTES de openScreen para que la factory
+            // del cliente lo encuentre cuando procese el paquete S2C
+            OccButtonMenuType.PENDING_CONTROLLER.set(controller);
 
-            // Usamos nuestro MenuType registrado (occbutton:dimensional_storage).
-            // Su factory de cliente busca el BE en el ServerLevel directamente,
-            // evitando el problema de que el ClientLevel del overworld no tiene el BE.
-            // En el servidor creamos el mismo StorageControllerContainer.
             NetworkHooks.openScreen(serverPlayer,
                     new net.minecraft.world.SimpleMenuProvider(
                             (id, inv, p) -> new StorageControllerContainer(id, inv, controller) {
@@ -121,8 +130,6 @@ public class StorageButtonOverlay {
                                     return true;
                                 }
 
-                                // Sobreescribimos getType() para que NetworkHooks use
-                                // nuestro MenuType en lugar del de Occultism
                                 @Override
                                 public net.minecraft.world.inventory.MenuType<?> getType() {
                                     return OccButtonMenuType.DIMENSIONAL_STORAGE.get();
@@ -130,13 +137,14 @@ public class StorageButtonOverlay {
                             },
                             Component.literal("Dimensional Storage")
                     ),
-                    buf -> buf.writeBlockPos(StorageConstants.CONTROLLER_POS)
+                    buf -> {
+                        buf.writeBlockPos(StorageConstants.CONTROLLER_POS);
+                        buf.writeResourceLocation(StorageConstants.DIMENSION.location());
+                    }
             );
 
-            LOGGER.info("[occbutton] openScreen OK");
+            LOGGER.info("[occbutton] openScreen singleplayer OK");
         });
-
-        mc.player.playSound(SoundEvents.UI_BUTTON_CLICK, 0.5f, 1.0f);
     }
 
     private void drawButton(PoseStack poseStack, Minecraft mc, boolean hovered) {

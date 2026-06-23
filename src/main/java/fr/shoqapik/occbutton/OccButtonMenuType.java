@@ -2,12 +2,13 @@ package fr.shoqapik.occbutton;
 
 import com.klikli_dev.occultism.common.blockentity.StorageControllerBlockEntity;
 import com.klikli_dev.occultism.common.container.storage.StorageControllerContainer;
-import fr.shoqapik.occbutton.client.OccButtonStorageGui;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
+import fr.shoqapik.occbutton.client.ClientMenuHelper;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.MenuType;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.extensions.IForgeMenuType;
+import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -21,10 +22,9 @@ public class OccButtonMenuType {
     private static final Logger LOGGER = LogManager.getLogger("occbutton");
 
     /**
-     * Referencia temporal al controller, establecida por el servidor justo antes
-     * de llamar a openScreen y leída por el cliente en la factory.
-     * Es seguro en singleplayer porque ambos hilos son secuenciales respecto
-     * a la apertura del menú.
+     * En singleplayer el servidor integrado pone el controller aquí justo antes
+     * de NetworkHooks.openScreen, y la factory del cliente lo recoge.
+     * Thread-safe via AtomicReference.
      */
     public static final AtomicReference<StorageControllerBlockEntity> PENDING_CONTROLLER
             = new AtomicReference<>(null);
@@ -35,39 +35,15 @@ public class OccButtonMenuType {
     public static final RegistryObject<MenuType<StorageControllerContainer>> DIMENSIONAL_STORAGE =
             MENU_TYPES.register("dimensional_storage",
                     () -> IForgeMenuType.create((windowId, inv, data) -> {
-                        LOGGER.info("[occbutton] CLIENT factory llamada!");
+                        // Leer buffer — clases seguras en servidor
+                        BlockPos pos = data.readBlockPos();
+                        ResourceLocation dimRL = data.readResourceLocation();
 
-                        StorageControllerBlockEntity controller = PENDING_CONTROLLER.getAndSet(null);
+                        LOGGER.info("[occbutton] Factory cliente: pos={} dim={}", pos, dimRL);
 
-                        if (controller == null) {
-                            LOGGER.error("[occbutton] PENDING_CONTROLLER es null!");
-                            return null;
-                        }
-
-                        StorageControllerContainer container = new StorageControllerContainer(
-                                windowId, inv, controller) {
-                            @Override
-                            public boolean stillValid(Player player) {
-                                return true;
-                            }
-
-                            @Override
-                            public MenuType<?> getType() {
-                                return OccButtonMenuType.DIMENSIONAL_STORAGE.get();
-                            }
-                        };
-
-                        // Abrir la GUI en el siguiente tick del render thread
-                        final StorageControllerContainer finalContainer = container;
-                        Minecraft.getInstance().execute(() -> {
-                            OccButtonStorageGui gui = new OccButtonStorageGui(
-                                    finalContainer, inv,
-                                    Component.literal("Dimensional Storage"));
-                            Minecraft.getInstance().setScreen(gui);
-                            Minecraft.getInstance().player.containerMenu = finalContainer;
-                            LOGGER.info("[occbutton] GUI abierta OK");
-                        });
-
-                        return container;
+                        // Delegar a ClientMenuHelper (@OnlyIn CLIENT) para evitar
+                        // que Forge rechace esta clase en servidor dedicado
+                        return DistExecutor.unsafeCallWhenOn(Dist.CLIENT,
+                                () -> () -> ClientMenuHelper.buildContainer(windowId, inv, pos, dimRL));
                     }));
 }

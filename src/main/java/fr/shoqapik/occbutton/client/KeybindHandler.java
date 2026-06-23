@@ -22,7 +22,7 @@ public class KeybindHandler {
         if (mc.screen != null || mc.player == null) return;
 
         while (ClientSetup.OPEN_STORAGE_KEY.consumeClick()) {
-            overlay.openStorageDirectly();
+            overlay.openStorage();
         }
     }
 }
